@@ -107,4 +107,79 @@ local Toggle = Tab:CreateToggle({
     end,
 })
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
+
+local boundingBoxes = {}  -- Tüm oyuncular için oluşturulmuş kutuları saklamak için tablo
+
+local Toggle = Tab:CreateToggle({
+    Name = "ESP Toggle",
+    CurrentValue = false,
+    Flag = "ToggleESP",
+    Callback = function(Value)
+        espEnabled = Value
+
+        if espEnabled then
+            -- ESP etkinleştirildiğinde kutuları ekle
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= Players.LocalPlayer then
+                    addBoundingBox(player)
+                end
+            end
+
+            -- Yeni oyuncu eklendiğinde kutu ekle
+            Players.PlayerAdded:Connect(function(player)
+                if espEnabled then
+                    addBoundingBox(player)
+                end
+            end)
+
+            -- RenderStepped ile sürekli güncelleme
+            updateConnection = RunService.RenderStepped:Connect(updateBoundingBoxes)
+
+        else
+            -- ESP devre dışı bırakıldığında tüm kutuları kaldır
+            for _, box in pairs(boundingBoxes) do
+                box:Destroy()
+            end
+            boundingBoxes = {}
+
+            -- Güncelleme bağlantısını kapat
+            if updateConnection then
+                updateConnection:Disconnect()
+                updateConnection = nil
+            end
+        end
+    end,
+})
+
+-- Belirtilen oyuncuya kutu ekleyen fonksiyon
+function addBoundingBox(player)
+    player.CharacterAdded:Connect(function(character)
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+        if humanoidRootPart then
+            local box = Instance.new("SelectionBox")
+            box.Adornee = character
+            box.LineThickness = 0.05
+            box.Color3 = Color3.fromRGB(255, 0, 0)
+            box.Parent = character
+            boundingBoxes[player] = box
+        end
+    end)
+end
+
+-- Kutuları sürekli olarak güncelleyen fonksiyon
+function updateBoundingBoxes()
+    for player, box in pairs(boundingBoxes) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            box.Visible = espEnabled  -- Toggle durumuna göre kutuları göster/gizle
+        else
+            box:Destroy()
+            boundingBoxes[player] = nil
+        end
+    end
+end
+
+
 Rayfield:LoadConfiguration()
