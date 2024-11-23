@@ -185,19 +185,52 @@ function updatePlayerList()
     end
 end
 
+-- ESP İşlevi: Oyuncuları highlight (ESP) ile göster
+function drawESP(player)
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = character.HumanoidRootPart
+        local screenPosition, onScreen = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("CoreGui"):FindFirstChild("WorldCamera"):WorldToViewportPoint(rootPart.Position)
+        
+        if onScreen then
+            local espText = Instance.new("TextLabel")
+            espText.Text = player.Name
+            espText.Size = UDim2.new(0, 100, 0, 30)
+            espText.Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y)
+            espText.TextColor3 = highlightEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)  -- Vurgulama (Red / Green)
+            espText.TextScaled = true
+            espText.BackgroundTransparency = 1
+            espText.Parent = game:GetService("CoreGui")
+            
+            -- Vurgulama etkinse, esp görünür, değilse gizlenir
+            if not highlightEnabled then
+                espText.Visible = false
+            end
+        end
+    end
+end
+
 -- Oyun başladığında tüm oyuncuları takip et
 game.Players.PlayerAdded:Connect(function(player)
     playerJoined(player.Name)
+    player.CharacterAdded:Connect(function(character)
+        -- Karakter yüklendiğinde ESP'yi çiz
+        drawESP(player)
+    end)
 end)
 
 game.Players.PlayerRemoving:Connect(function(player)
     playerLeft(player.Name)
 end)
 
--- Başlangıçta mevcut oyuncuları ekle
+-- Başlangıçta mevcut oyuncuları ekle ve ESP'yi çiz
 for _, player in pairs(game.Players:GetPlayers()) do
     playerJoined(player.Name)
+    if player.Character then
+        drawESP(player)
+    end
 end
+
 
 
 Rayfield:LoadConfiguration()
