@@ -107,9 +107,8 @@ local Toggle = Tab:CreateToggle({
     end,
 })
 
--- Global player list
 local playerList = {}
-local highlightEnabled = true  -- Vurgulama açık/kapalı durumu
+local highlightEnabled = false  -- Başlangıçta highlight kapalı
 
 -- GUI Elemanları (Roblox örneği için)
 local screenGui = Instance.new("ScreenGui")
@@ -117,14 +116,20 @@ local playerListFrame = Instance.new("Frame", screenGui)
 playerListFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
 playerListFrame.Position = UDim2.new(0.7, 0, 0.25, 0)
 playerListFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-playerListFrame.Visible = true  -- Başlangıçta görünür
+playerListFrame.Visible = true
 
--- Toggle işlevi, highlight'ı açıp kapatacak
-function toggleHighlight()
-    highlightEnabled = not highlightEnabled
-    print("Highlight durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
-    updatePlayerList()  -- Listeyi güncelle
-end
+-- Toggle ile highlight'ı açıp kapat
+local Toggle = Tab:CreateToggle({
+    Name = "Highlight Toggle",
+    CurrentValue = false,
+    Flag = "Toggle1", -- Konfigürasyon dosyasındaki flag
+    Callback = function(Value)
+        -- Toggle durumu değiştiğinde yapılacaklar
+        highlightEnabled = Value
+        print("Highlight durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
+        updatePlayerList()  -- Listeyi güncelle
+    end,
+})
 
 -- Oyuncu oyuna girdiğinde listeye ekle
 function playerJoined(playerName)
@@ -182,13 +187,6 @@ playerJoined("Ahmet")
 playerJoined("Mehmet")
 playerLeft("Ahmet")
 playerJoined("Ayşe")
-
--- Toggle işlevini test etmek için 2 saniye arayla highlight'ı açıp kapatıyoruz
-wait(2)
-toggleHighlight()  -- Highlight'ı kapatıyoruz
-
-wait(2)
-toggleHighlight()  -- Highlight'ı tekrar açıyoruz
 
 
 Rayfield:LoadConfiguration()
