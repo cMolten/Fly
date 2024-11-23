@@ -112,50 +112,10 @@ local RunService = game:GetService("RunService")
 local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
 
 local boundingBoxes = {}  -- Tüm oyuncular için oluşturulmuş kutuları saklamak için tablo
+local updateConnection  -- RenderStepped bağlantısı
 
-local Toggle = Tab:CreateToggle({
-    Name = "ESP Toggle",
-    CurrentValue = false,
-    Flag = "ToggleESP",
-    Callback = function(Value)
-        espEnabled = Value
-
-        if espEnabled then
-            -- ESP etkinleştirildiğinde kutuları ekle
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Players.LocalPlayer then
-                    addBoundingBox(player)
-                end
-            end
-
-            -- Yeni oyuncu eklendiğinde kutu ekle
-            Players.PlayerAdded:Connect(function(player)
-                if espEnabled then
-                    addBoundingBox(player)
-                end
-            end)
-
-            -- RenderStepped ile sürekli güncelleme
-            updateConnection = RunService.RenderStepped:Connect(updateBoundingBoxes)
-
-        else
-            -- ESP devre dışı bırakıldığında tüm kutuları kaldır
-            for _, box in pairs(boundingBoxes) do
-                box:Destroy()
-            end
-            boundingBoxes = {}
-
-            -- Güncelleme bağlantısını kapat
-            if updateConnection then
-                updateConnection:Disconnect()
-                updateConnection = nil
-            end
-        end
-    end,
-})
-
--- Belirtilen oyuncuya kutu ekleyen fonksiyon
-function addBoundingBox(player)
+local function addBoundingBox(player)
+    -- Oyuncunun karakteri yüklendiğinde kutuyu oluşturur
     player.CharacterAdded:Connect(function(character)
         local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
         if humanoidRootPart then
@@ -169,15 +129,67 @@ function addBoundingBox(player)
     end)
 end
 
--- Kutuları sürekli olarak güncelleyen fonksiyon
-function updateBoundingBoxes()
+local function removeBoundingBox(player)
+    -- Oyuncu çıktığında veya ESP kapandığında kutuyu kaldırır
+    if boundingBoxes[player] then
+        boundingBoxes[player]:Destroy()
+        boundingBoxes[player] = nil
+    end
+end
+
+local function updateBoundingBoxes()
+    -- Mevcut kutuları güncelleyerek sürekli olarak görünürlüklerini ayarlar
     for player, box in pairs(boundingBoxes) do
         if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             box.Visible = espEnabled  -- Toggle durumuna göre kutuları göster/gizle
         else
-            box:Destroy()
-            boundingBoxes[player] = nil
+            removeBoundingBox(player)
         end
+    end
+end
+
+-- Toggle ile ESP açma ve kapama
+local Toggle = Tab:CreateToggle({
+    Name = "ESP Toggle",
+    CurrentValue = false,
+    Flag = "ToggleESP",
+    Callback = function(Value)
+        espEnabled = Value
+
+        if espEnabled then
+            -- ESP açıldığında tüm oyunculara kutu ekle
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= Players.LocalPlayer then
+                    addBoundingBox(player)
+                end
+            end
+
+            -- Yeni oyuncu eklendiğinde kutu ekleme
+            Players.PlayerAdded:Connect(addBoundingBox)
+
+            -- RenderStepped ile sürekli güncelleme
+            if not updateConnection then
+                updateConnection = RunService.RenderStepped:Connect(updateBoundingBoxes)
+            end
+        else
+            -- ESP kapandığında tüm kutuları kaldır
+            for player, _ in pairs(boundingBoxes) do
+                removeBoundingBox(player)
+            end
+
+            -- Güncelleme bağlantısını kapat
+            if updateConnection then
+                updateConnection:Disconnect()
+                updateConnection = nil
+            end
+        end
+    end,
+})
+
+-- Başlangıçta tüm oyunculara kutu ekleme (ESP açık olduğunda)
+for _, player in pairs(Players:GetPlayers()) do
+    if player ~= Players.LocalPlayer then
+        addBoundingBox(player)
     end
 end
 
