@@ -148,6 +148,7 @@ local function updateBoundingBoxes()
     end
 end
 
+-- Toggle ile ESP açma ve kapama
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
