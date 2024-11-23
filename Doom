@@ -1,0 +1,110 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "Sir Doom",
+    Icon = 0,
+    LoadingTitle = "Sdoom",
+    LoadingSubtitle = "by Doom",
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil,
+        FileName = "lua Hub"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false,
+    KeySettings = {
+        Title = "Untitled",
+        Subtitle = "Key System",
+        Note = "No method of obtaining the key is provided",
+        FileName = "Key",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {"Hello"}
+    }
+})
+
+local Tab = Window:CreateTab("MainTab")
+local Section = Tab:CreateSection("Main")
+
+-- Tracer için global bir tablo ve güncelleme bağlantısı
+local tracers = {}
+local tracerUpdateConnection
+
+-- Tracer güncelleme fonksiyonu
+local function updateTracers()
+    local Camera = workspace.CurrentCamera
+    local LocalPlayer = game:GetService("Players").LocalPlayer
+
+    for player, tracer in pairs(tracers) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local characterPosition = player.Character.HumanoidRootPart.Position
+            local screenPosition, onScreen = Camera:WorldToViewportPoint(characterPosition)
+
+            if onScreen then
+                tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                tracer.To = Vector2.new(screenPosition.X, screenPosition.Y)
+                tracer.Visible = true
+            else
+                tracer.Visible = false
+            end
+        end
+    end
+end
+
+-- Toggle komutu ile tracer'ı aç/kapat
+local Toggle = Tab:CreateToggle({
+    Name = "Tracer Toggle",
+    CurrentValue = false,
+    Flag = "Toggle1",
+    Callback = function(Value)
+        local Players = game:GetService("Players")
+
+        if Value then
+            -- Tracer'ları oluştur ve güncellemeye başla
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= Players.LocalPlayer then
+                    local tracer = Drawing.new("Line")
+                    tracer.Thickness = 2
+                    tracer.Color = Color3.fromRGB(255, 255, 255)
+                    tracer.Transparency = 1
+                    tracers[player] = tracer
+                end
+            end
+
+            -- Yeni oyuncu eklendiğinde tracer oluştur
+            Players.PlayerAdded:Connect(function(player)
+                if player ~= Players.LocalPlayer then
+                    local tracer = Drawing.new("Line")
+                    tracer.Thickness = 2
+                    tracer.Color = Color3.fromRGB(255, 255, 255)
+                    tracer.Transparency = 1
+                    tracers[player] = tracer
+                end
+            end)
+
+            -- Tracer'ları her karede güncelle
+            tracerUpdateConnection = game:GetService("RunService").RenderStepped:Connect(updateTracers)
+
+        else
+            -- Tracer'ları kaldır ve güncellemeyi durdur
+            for _, tracer in pairs(tracers) do
+                tracer:Remove()
+            end
+            tracers = {}
+
+            if tracerUpdateConnection then
+                tracerUpdateConnection:Disconnect()
+                tracerUpdateConnection = nil
+            end
+        end
+    end,
+})
+
+Rayfield:LoadConfiguration()
