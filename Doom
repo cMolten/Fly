@@ -107,130 +107,72 @@ local Toggle = Tab:CreateToggle({
     end,
 })
 
--- Global player list
-local playerList = {}
-local highlightEnabled = false  -- Başlangıçta highlight kapalı
+-- Highlight ESP Toggle
+local highlightEnabled = false
+local highlightedPlayers = {}
 
--- GUI Elemanları (Roblox GUI)
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")  -- GUI'yi oyuncunun ekranına ekleyelim
-
-local playerListFrame = Instance.new("Frame", screenGui)
-playerListFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
-playerListFrame.Position = UDim2.new(0.7, 0, 0.25, 0)
-playerListFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-playerListFrame.Visible = true  -- Başlangıçta görünür
-
--- Toggle ile highlight'ı açıp kapat
-local Toggle = Tab:CreateToggle({
-    Name = "Highlight Toggle",
+local Toggle2 = Tab:CreateToggle({
+    Name = "highlight esp",
     CurrentValue = false,
-    Flag = "Toggle1", -- Konfigürasyon dosyasındaki flag
+    Flag = "Toggle2",
     Callback = function(Value)
-        -- Toggle durumu değiştiğinde yapılacaklar
         highlightEnabled = Value
-        print("Highlight durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
-        updatePlayerList()  -- Listeyi güncelle
-    end,
+
+        -- Remove highlights when toggle is turned off
+        if not highlightEnabled then
+            for , player in pairs(highlightedPlayers) do
+                if player.Character and player.Character:FindFirstChild("Head") then
+                    local highlight = player.Character.Head:FindFirstChild("Highlight")
+                    if highlight then
+                        highlight:Destroy()
+                    end
+                end
+            end
+            highlightedPlayers = {}
+        end
+    end
 })
 
--- Oyuncu oyuna girdiğinde listeye ekle
-function playerJoined(playerName)
-    if not playerList[playerName] then
-        playerList[playerName] = "joined"
-        print(playerName .. " oyuna girdi!")
-    end
-    updatePlayerList()
-end
-
--- Oyuncu oyundan çıktığında listeden çıkar
-function playerLeft(playerName)
-    if playerList[playerName] then
-        playerList[playerName] = "left"
-        print(playerName .. " oyundan çıktı!")
-    end
-    updatePlayerList()
-end
-
--- GUI üzerinde oyuncu listesini güncelle
-function updatePlayerList()
-    -- Eski UI öğelerini temizle
-    for _, child in pairs(playerListFrame:GetChildren()) do
-        if child:IsA("TextLabel") then
-            child:Destroy()
-        end
-    end
-    
-    -- Oyuncu listesine göre yeni TextLabel'lar oluştur
-    local yPosition = 0
-    for playerName, status in pairs(playerList) do
-        local statusMessage = (status == "joined") and "[Girdi]" or "[Çıktı]"
-        local color = (status == "joined") and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)  -- Yeşil (girdi) ya da Kırmızı (çıktı)
-
-        -- Eğer highlight aktifse, arka plan rengi değiştirilir
-        local backgroundColor = (highlightEnabled) and color or Color3.fromRGB(255, 255, 255)
-
-        -- Yeni TextLabel oluştur
-        local label = Instance.new("TextLabel", playerListFrame)
-        label.Size = UDim2.new(1, 0, 0, 30)
-        label.Position = UDim2.new(0, 0, 0, yPosition)
-        label.Text = playerName .. " " .. statusMessage
-        label.BackgroundColor3 = backgroundColor
-        label.TextColor3 = Color3.fromRGB(0, 0, 0)
-        label.TextScaled = true
-        label.TextStrokeTransparency = 0.8
-        label.TextSize = 20
-        label.BorderSizePixel = 1
-        yPosition = yPosition + 35  -- Y pozisyonunu güncelle
+-- Function to Add Highlight
+local function addHighlight(player)
+    if player.Character and player.Character:FindFirstChild("Head") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "Highlight"
+        highlight.Adornee = player.Character.Head
+        highlight.Parent = player.Character.Head
+        highlight.FillColor = Color3.fromRGB(255, 255, 0) -- Yellow color for highlight
+        highlight.FillTransparency = 0.5
+        table.insert(highlightedPlayers, player)
     end
 end
 
--- ESP İşlevi: Oyuncuları highlight (ESP) ile göster
-function drawESP(player)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local rootPart = character.HumanoidRootPart
-        local screenPosition, onScreen = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("CoreGui"):FindFirstChild("WorldCamera"):WorldToViewportPoint(rootPart.Position)
-        
-        if onScreen then
-            local espText = Instance.new("TextLabel")
-            espText.Text = player.Name
-            espText.Size = UDim2.new(0, 100, 0, 30)
-            espText.Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y)
-            espText.TextColor3 = highlightEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)  -- Vurgulama (Red / Green)
-            espText.TextScaled = true
-            espText.BackgroundTransparency = 1
-            espText.Parent = game:GetService("CoreGui")
-            
-            -- Vurgulama etkinse, esp görünür, değilse gizlenir
-            if not highlightEnabled then
-                espText.Visible = false
-            end
+-- Function to Remove Highlight
+local function removeHighlight(player)
+    if player.Character and player.Character:FindFirstChild("Head") then
+        local highlight = player.Character.Head:FindFirstChild("Highlight")
+        if highlight then
+            highlight:Destroy()
         end
     end
 end
 
--- Oyun başladığında tüm oyuncuları takip et
-game.Players.PlayerAdded:Connect(function(player)
-    playerJoined(player.Name)
-    player.CharacterAdded:Connect(function(character)
-        -- Karakter yüklendiğinde ESP'yi çiz
-        drawESP(player)
-    end)
+-- Update Highlight ESP
+game:GetService("Players").PlayerAdded:Connect(function(player)
+    if highlightEnabled then
+        addHighlight(player)
+    end
 end)
 
-game.Players.PlayerRemoving:Connect(function(player)
-    playerLeft(player.Name)
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+    removeHighlight(player)
 end)
 
--- Başlangıçta mevcut oyuncuları ekle ve ESP'yi çiz
-for _, player in pairs(game.Players:GetPlayers()) do
-    playerJoined(player.Name)
-    if player.Character then
-        drawESP(player)
+-- Initial Highlight for Players Already in the Game
+for , player in pairs(game:GetService("Players"):GetPlayers()) do
+    if highlightEnabled then
+        addHighlight(player)
     end
 end
-
 
 
 Rayfield:LoadConfiguration()
