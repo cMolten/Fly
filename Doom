@@ -1,83 +1,85 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ESPEnabled = false
+local Tracers = {}
 
+local function CreateTracer(player)
+    -- Tracer çizgisini oluştur
+    local tracer = Drawing.new("Line")
+    tracer.Visible = false
+    tracer.Color = Color3.fromRGB(255, 255, 255) -- Beyaz renk
+    tracer.Thickness = 1 -- Kalınlık
+    tracer.Transparency = 1
+    Tracers[player] = tracer
+end
 
-local Window = Rayfield:CreateWindow({
-    Name = "Dooms",
-    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-    LoadingTitle = "Sdoom",
-    LoadingSubtitle = "by Doom",
-    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
- 
-    DisableRayfieldPrompts = false,
-    DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
- 
-    ConfigurationSaving = {
-       Enabled = true,
-       FolderName = nil, -- Create a custom folder for your hub/game
-       FileName = "lua Hub"
-    },
- 
-    Discord = {
-       Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
-       Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ABCD would be ABCD
-       RememberJoins = true -- Set this to false to make them join the discord every time they load it up
-    },
- 
-    KeySystem = false, -- Set this to true to use our key system
-    KeySettings = {
-       Title = "Untitled",
-       Subtitle = "Key System",
-       Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
-       FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
-       SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
-       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-       Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
-    }
- })
+local function RemoveTracer(player)
+    -- Tracer çizgisini kaldır
+    if Tracers[player] then
+        Tracers[player]:Remove()
+        Tracers[player] = nil
+    end
+end
 
+local function UpdateTracers()
+    if not ESPEnabled then return end
+    for player, tracer in pairs(Tracers) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") and player ~= Players.LocalPlayer then
+            local rootPart = player.Character.HumanoidRootPart
+            local screenPosition, onScreen = workspace.CurrentCamera:WorldToViewportPoint(rootPart.Position)
+            if onScreen then
+                tracer.From = Vector2.new(workspace.CurrentCamera.ViewportSize.X / 2, workspace.CurrentCamera.ViewportSize.Y) -- Ekranın ortası alt noktası
+                tracer.To = Vector2.new(screenPosition.X, screenPosition.Y) -- Oyuncunun pozisyonu
+                tracer.Visible = true
+            else
+                tracer.Visible = false
+            end
+        else
+            tracer.Visible = false
+        end
+    end
+end
 
- local Tab = Window:CreateTab("Main")
- local Section = Tab:CreateSection("MainStuff")
+local function ToggleESP(value)
+    ESPEnabled = value
+    if ESPEnabled then
+        -- ESP açık, tüm oyunculara tracer ekle
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Players.LocalPlayer then
+                CreateTracer(player)
+            end
+        end
+        -- Tracerları her frame güncelle
+        RunService.RenderStepped:Connect(UpdateTracers)
+    else
+        -- ESP kapalı, tüm tracerları kaldır
+        for _, player in pairs(Players:GetPlayers()) do
+            RemoveTracer(player)
+        end
+    end
+end
 
- local Players = game:GetService("Players")
+-- Yeni oyuncular oyuna girdiğinde tracer ekle
+Players.PlayerAdded:Connect(function(player)
+    if ESPEnabled and player ~= Players.LocalPlayer then
+        player.CharacterAdded:Connect(function()
+            wait(0.5) -- Karakterin tamamen yüklenmesini beklemek için
+            CreateTracer(player)
+        end)
+    end
+end)
 
+-- Oyuncu çıktığında tracerı kaldır
+Players.PlayerRemoving:Connect(function(player)
+    RemoveTracer(player)
+end)
+
+-- Toggle ile ESP aç/kapat
 local Toggle = Tab:CreateToggle({
-   Name = "Highlight ESP",
-   CurrentValue = false,
-   Flag = "ToggleESP",
-   Callback = function(Value)
-       if Value then
-           -- ESP açık olduğunda döngüyü başlat
-           spawn(function()
-               while Toggle.CurrentValue do
-                   -- Tüm oyuncuları döngüyle gez
-                   for _, player in ipairs(Players:GetPlayers()) do
-                       if player ~= Players.LocalPlayer and player.Character then
-                           -- Eğer oyuncunun Highlight'ı yoksa, ekle
-                           local highlight = player.Character:FindFirstChild("Highlight")
-                           if not highlight then
-                               highlight = Instance.new("Highlight")
-                               highlight.Parent = player.Character
-                               highlight.Adornee = player.Character
-                               highlight.FillColor = Color3.new(1, 0, 0) -- Kırmızı doldurma rengi
-                               highlight.OutlineColor = Color3.new(1, 1, 1) -- Beyaz kenarlık rengi
-                           end
-                       end
-                   end
-                   -- 1 saniye bekle
-                   wait(1)
-               end
-           end)
-       else
-           -- Toggle kapalı olduğunda tüm Highlightları kaldır
-           for _, player in ipairs(Players:GetPlayers()) do
-               if player.Character then
-                   local highlight = player.Character:FindFirstChild("Highlight")
-                   if highlight then
-                       highlight:Destroy()
-                   end
-               end
-           end
-       end
-   end,
+    Name = "Toggle Tracer ESP",
+    CurrentValue = false,
+    Flag = "Toggle1",
+    Callback = function(Value)
+        ToggleESP(Value)
+    end,
 })
