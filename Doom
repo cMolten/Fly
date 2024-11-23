@@ -58,6 +58,96 @@ local function updateTracers()
     end
 end
 
+-- Toggle komutu ile tracer'ı aç/kapat
+local Toggle = Tab:CreateToggle({
+    Name = "Tracer Toggle",
+    CurrentValue = false,
+    Flag = "Toggle1",
+    Callback = function(Value)
+        local Players = game:GetService("Players")
+
+        if Value then
+            -- Tracer'ları oluştur ve güncellemeye başla
+            for _, player in pairs(Players:GetPlayers()) do
+                if player ~= Players.LocalPlayer then
+                    local tracer = Drawing.new("Line")
+                    tracer.Thickness = 2
+                    tracer.Color = Color3.fromRGB(255, 255, 255)
+                    tracer.Transparency = 1
+                    tracers[player] = tracer
+                end
+            end
+
+            -- Yeni oyuncu eklendiğinde tracer oluştur
+            Players.PlayerAdded:Connect(function(player)
+                if player ~= Players.LocalPlayer then
+                    local tracer = Drawing.new("Line")
+                    tracer.Thickness = 2
+                    tracer.Color = Color3.fromRGB(255, 255, 255)
+                    tracer.Transparency = 1
+                    tracers[player] = tracer
+                end
+            end)
+
+            -- Tracer'ları her karede güncelle
+            tracerUpdateConnection = game:GetService("RunService").RenderStepped:Connect(updateTracers)
+
+        else
+            -- Tracer'ları kaldır ve güncellemeyi durdur
+            for _, tracer in pairs(tracers) do
+                tracer:Remove()
+            end
+            tracers = {}
+
+            if tracerUpdateConnection then
+                tracerUpdateConnection:Disconnect()
+                tracerUpdateConnection = nil
+            end
+        end
+    end,
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
+
+local boundingBoxes = {}  -- Tüm oyuncular için oluşturulmuş kutuları saklamak için tablo
+local updateConnection  -- RenderStepped bağlantısı
+
+local function addBoundingBox(player)
+    -- Oyuncunun karakteri yüklendiğinde kutuyu oluşturur
+    player.CharacterAdded:Connect(function(character)
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
+        if humanoidRootPart then
+            local box = Instance.new("SelectionBox")
+            box.Adornee = character
+            box.LineThickness = 0.05
+            box.Color3 = Color3.fromRGB(255, 0, 0)
+            box.Parent = character
+            boundingBoxes[player] = box
+        end
+    end)
+end
+
+local function removeBoundingBox(player)
+    -- Oyuncu çıktığında veya ESP kapandığında kutuyu kaldırır
+    if boundingBoxes[player] then
+        boundingBoxes[player]:Destroy()
+        boundingBoxes[player] = nil
+    end
+end
+
+local function updateBoundingBoxes()
+    -- Mevcut kutuları güncelleyerek sürekli olarak görünürlüklerini ayarlar
+    for player, box in pairs(boundingBoxes) do
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            box.Visible = espEnabled  -- Toggle durumuna göre kutuları göster/gizle
+        else
+            removeBoundingBox(player)
+        end
+    end
+end
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
