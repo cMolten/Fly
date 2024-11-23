@@ -107,154 +107,84 @@ local Toggle = Tab:CreateToggle({
     end,
 })
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
+-- Global player list
+local playerList = {}
+local highlightEnabled = true  -- Vurgulamanın açık/kapalı olduğunu belirleyen flag
 
-local boundingBoxes = {}  -- Tüm oyuncular için oluşturulmuş kutuları saklamak için tablo
-local updateConnection  -- RenderStepped bağlantısı
+-- GUI elemanları (Roblox GUI için örnek)
+local screenGui = Instance.new("ScreenGui")
+local playerListFrame = Instance.new("Frame", screenGui)
+playerListFrame.Size = UDim2.new(0.3, 0, 0.5, 0)
+playerListFrame.Position = UDim2.new(0.7, 0, 0.25, 0)
+playerListFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+playerListFrame.Visible = true  -- Başlangıçta görünür
 
-local function addBoundingBox(player)
-    -- Oyuncunun karakteri yüklendiğinde kutuyu oluşturur
-    player.CharacterAdded:Connect(function(character)
-        local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-        if humanoidRootPart then
-            local box = Instance.new("SelectionBox")
-            box.Adornee = character
-            box.LineThickness = 0.05
-            box.Color3 = Color3.fromRGB(255, 0, 0)
-            box.Parent = character
-            boundingBoxes[player] = box
-        end
-    end)
+-- Bir toggle fonksiyonu ile highlight'ı açıp kapatabiliriz
+function toggleHighlight()
+    highlightEnabled = not highlightEnabled
+    updatePlayerList()  -- Vurgulama durumunu güncelle
 end
 
-local function removeBoundingBox(player)
-    -- Oyuncu çıktığında veya ESP kapandığında kutuyu kaldırır
-    if boundingBoxes[player] then
-        boundingBoxes[player]:Destroy()
-        boundingBoxes[player] = nil
+-- Oyuncu oyuna girdiğinde listeye ekle
+function playerJoined(playerName)
+    if not playerList[playerName] then
+        playerList[playerName] = "joined"
+        print(playerName .. " oyuna girdi!")
     end
+    updatePlayerList()
 end
 
-local function updateBoundingBoxes()
-    -- Mevcut kutuları güncelleyerek sürekli olarak görünürlüklerini ayarlar
-    for player, box in pairs(boundingBoxes) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            box.Visible = espEnabled  -- Toggle durumuna göre kutuları göster/gizle
-        else
-            removeBoundingBox(player)
-        end
+-- Oyuncu oyundan çıktığında listeden çıkar
+function playerLeft(playerName)
+    if playerList[playerName] then
+        playerList[playerName] = "left"
+        print(playerName .. " oyundan çıktı!")
     end
+    updatePlayerList()
 end
 
--- Toggle ile ESP açma ve kapama
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local espEnabled = false  -- ESP işlevinin durumunu kontrol etmek için
-
-local boundingBoxes = {}  -- Tüm oyuncular için oluşturulmuş kutuları saklamak için tablo
-local highlights = {}  -- Tüm oyuncular için Highlight'ları saklamak için tablo
-local updateConnection  -- RenderStepped bağlantısı
-
-local function addBoundingBoxAndHighlight(player)
-    -- Oyuncunun karakteri yüklendiğinde kutu ve highlight oluşturur
-    player.CharacterAdded:Connect(function(character)
-        local humanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
-        if humanoidRootPart then
-            -- Kutu oluşturma
-            local box = Instance.new("SelectionBox")
-            box.Adornee = character
-            box.LineThickness = 0.05
-            box.Color3 = Color3.fromRGB(255, 0, 0)
-            box.Parent = character
-            boundingBoxes[player] = box
-
-            -- Highlight oluşturma
-            local highlight = Instance.new("Highlight")
-            highlight.Adornee = character
-            highlight.FillColor = Color3.fromRGB(255, 0, 0)  -- Kırmızı renk
-            highlight.FillTransparency = 0.5  -- Yarı şeffaf
-            highlight.Parent = character
-            highlights[player] = highlight
-        end
-    end)
-end
-
-local function removeBoundingBoxAndHighlight(player)
-    -- Oyuncu çıktığında veya ESP kapandığında kutuyu ve highlight'ı kaldırır
-    if boundingBoxes[player] then
-        boundingBoxes[player]:Destroy()
-        boundingBoxes[player] = nil
-    end
-    if highlights[player] then
-        highlights[player]:Destroy()
-        highlights[player] = nil
-    end
-end
-
-local function updateBoundingBoxesAndHighlights()
-    -- Mevcut kutuları ve highlight'ları güncelleyerek sürekli olarak görünürlüklerini ayarlar
-    for player, box in pairs(boundingBoxes) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            box.Visible = espEnabled  -- Toggle durumuna göre kutuyu göster/gizle
-        else
-            removeBoundingBoxAndHighlight(player)
+-- GUI üzerinde oyuncu listesini güncelle
+function updatePlayerList()
+    -- Eski UI öğelerini temizle
+    for _, child in pairs(playerListFrame:GetChildren()) do
+        if child:IsA("TextLabel") then
+            child:Destroy()
         end
     end
-    for player, highlight in pairs(highlights) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            highlight.Enabled = espEnabled  -- Toggle durumuna göre highlight'ı göster/gizle
-        else
-            removeBoundingBoxAndHighlight(player)
-        end
+    
+    -- Oyuncu listesine göre yeni TextLabel'lar oluştur
+    local yPosition = 0
+    for playerName, status in pairs(playerList) do
+        local statusMessage = (status == "joined") and "[Girdi]" or "[Çıktı]"
+        local color = (status == "joined") and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)  -- Yeşil (girdi) ya da Kırmızı (çıktı)
+
+        -- Eğer highlight aktifse, arka plan rengi değiştirilir
+        local backgroundColor = (highlightEnabled) and color or Color3.fromRGB(255, 255, 255)
+
+        -- Yeni TextLabel oluştur
+        local label = Instance.new("TextLabel", playerListFrame)
+        label.Size = UDim2.new(1, 0, 0, 30)
+        label.Position = UDim2.new(0, 0, 0, yPosition)
+        label.Text = playerName .. " " .. statusMessage
+        label.BackgroundColor3 = backgroundColor
+        label.TextColor3 = Color3.fromRGB(0, 0, 0)
+        label.TextScaled = true
+        label.TextStrokeTransparency = 0.8
+        label.TextSize = 20
+        label.BorderSizePixel = 1
+        yPosition = yPosition + 35  -- Y pozisyonunu güncelle
     end
 end
 
--- Toggle ile ESP açma ve kapama
-local Toggle = Tab:CreateToggle({
-    Name = "ESP Toggle",
-    CurrentValue = false,
-    Flag = "ToggleESP",
-    Callback = function(Value)
-        espEnabled = Value
+-- Test için örnek oyuncu giriş ve çıkışları
+playerJoined("Ahmet")
+playerJoined("Mehmet")
+playerLeft("Ahmet")
+playerJoined("Ayşe")
 
-        if espEnabled then
-            -- ESP açıldığında tüm oyunculara kutu ve highlight ekle
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Players.LocalPlayer then
-                    addBoundingBoxAndHighlight(player)
-                end
-            end
-
-            -- Yeni oyuncu eklendiğinde kutu ve highlight ekle
-            Players.PlayerAdded:Connect(addBoundingBoxAndHighlight)
-
-            -- RenderStepped ile sürekli güncelleme
-            if not updateConnection then
-                updateConnection = RunService.RenderStepped:Connect(updateBoundingBoxesAndHighlights)
-            end
-        else
-            -- ESP kapandığında tüm kutu ve highlight'ları kaldır
-            for player, _ in pairs(boundingBoxes) do
-                removeBoundingBoxAndHighlight(player)
-            end
-
-            -- Güncelleme bağlantısını kapat
-            if updateConnection then
-                updateConnection:Disconnect()
-                updateConnection = nil
-            end
-        end
-    end,
-})
-
--- Başlangıçta tüm oyunculara kutu ve highlight ekle (ESP açık olduğunda)
-for _, player in pairs(Players:GetPlayers()) do
-    if player ~= Players.LocalPlayer then
-        addBoundingBoxAndHighlight(player)
-    end
-end
+-- Toggle fonksiyonunu tetikleyebiliriz
+toggleHighlight()  -- Highlight'ı kapatmak için çağırıyoruz
+toggleHighlight()  -- Highlight'ı tekrar açmak için çağırıyoruz
 
 
 Rayfield:LoadConfiguration()
