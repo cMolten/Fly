@@ -33,145 +33,164 @@ local Window = Rayfield:CreateWindow({
 local Tab = Window:CreateTab("MainTab")
 local Section = Tab:CreateSection("Main")
 
--- Tracer için global bir tablo ve güncelleme bağlantısı
-local tracers = {}
-local tracerUpdateConnection
+-- Global player list
+local highlightEnabled = false  -- Başlangıçta highlight kapalı
 
--- Tracer güncelleme fonksiyonu
-local function updateTracers()
-    local Camera = workspace.CurrentCamera
-    local LocalPlayer = game:GetService("Players").LocalPlayer
+-- GUI Elemanları (Roblox GUI)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")  -- GUI'yi oyuncunun ekranına ekleyelim
 
-    for player, tracer in pairs(tracers) do
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local characterPosition = player.Character.HumanoidRootPart.Position
-            local screenPosition, onScreen = Camera:WorldToViewportPoint(characterPosition)
-
-            if onScreen then
-                tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                tracer.To = Vector2.new(screenPosition.X, screenPosition.Y)
-                tracer.Visible = true
-            else
-                tracer.Visible = false
-            end
-        end
-    end
-end
-
--- Toggle komutu ile tracer'ı aç/kapat
+-- Toggle ile highlight'ı açıp kapat
 local Toggle = Tab:CreateToggle({
-    Name = "Tracer Toggle",
-    CurrentValue = false,
-    Flag = "Toggle1",
-    Callback = function(Value)
-        local Players = game:GetService("Players")
-
-        if Value then
-            -- Tracer'ları oluştur ve güncellemeye başla
-            for _, player in pairs(Players:GetPlayers()) do
-                if player ~= Players.LocalPlayer then
-                    local tracer = Drawing.new("Line")
-                    tracer.Thickness = 2
-                    tracer.Color = Color3.fromRGB(255, 255, 255)
-                    tracer.Transparency = 1
-                    tracers[player] = tracer
-                end
-            end
-
-            -- Yeni oyuncu eklendiğinde tracer oluştur
-            Players.PlayerAdded:Connect(function(player)
-                if player ~= Players.LocalPlayer then
-                    local tracer = Drawing.new("Line")
-                    tracer.Thickness = 2
-                    tracer.Color = Color3.fromRGB(255, 255, 255)
-                    tracer.Transparency = 1
-                    tracers[player] = tracer
-                end
-            end)
-
-            -- Tracer'ları her karede güncelle
-            tracerUpdateConnection = game:GetService("RunService").RenderStepped:Connect(updateTracers)
-
-        else
-            -- Tracer'ları kaldır ve güncellemeyi durdur
-            for _, tracer in pairs(tracers) do
-                tracer:Remove()
-            end
-            tracers = {}
-
-            if tracerUpdateConnection then
-                tracerUpdateConnection:Disconnect()
-                tracerUpdateConnection = nil
-            end
-        end
-    end,
+   Name = "Enable ESP",
+   CurrentValue = false,
+   Flag = "Toggle1", -- Konfigürasyon dosyasındaki flag
+   Callback = function(Value)
+      -- Toggle durumu değiştiğinde yapılacaklar
+      highlightEnabled = Value
+      print("ESP durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
+      updateESP()  -- ESP'yi güncelle
+   end,
 })
 
--- Highlight ESP Toggle
-local highlightEnabled = false
-local highlightedPlayers = {}
-
-local Toggle2 = Tab:CreateToggle({
-    Name = "highlight esp",
-    CurrentValue = false,
-    Flag = "Toggle2",
-    Callback = function(Value)
-        highlightEnabled = Value
-
-        -- Remove highlights when toggle is turned off
-        if not highlightEnabled then
-            for , player in pairs(highlightedPlayers) do
-                if player.Character and player.Character:FindFirstChild("Head") then
-                    local highlight = player.Character.Head:FindFirstChild("Highlight")
-                    if highlight then
-                        highlight:Destroy()
-                    end
-                end
+-- ESP İşlevi: Oyuncuları highlight (ESP) ile göster
+function drawESP(player)
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = character.HumanoidRootPart
+        local screenPosition, onScreen = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("CoreGui"):FindFirstChild("WorldCamera"):WorldToViewportPoint(rootPart.Position)
+        
+        if onScreen then
+            local espText = Instance.new("TextLabel")
+            espText.Text = player.Name
+            espText.Size = UDim2.new(0, 100, 0, 30)
+            espText.Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y)
+            espText.TextColor3 = highlightEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)  -- Vurgulama (Red / Green)
+            espText.TextScaled = true
+            espText.BackgroundTransparency = 1
+            espText.Parent = game:GetService("CoreGui")
+            
+            -- Vurgulama etkinse, esp görünür, değilse gizlenir
+            if not highlightEnabled then
+                espText.Visible = false
             end
-            highlightedPlayers = {}
-        end
-    end
-})
-
--- Function to Add Highlight
-local function addHighlight(player)
-    if player.Character and player.Character:FindFirstChild("Head") then
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "Highlight"
-        highlight.Adornee = player.Character.Head
-        highlight.Parent = player.Character.Head
-        highlight.FillColor = Color3.fromRGB(255, 255, 0) -- Yellow color for highlight
-        highlight.FillTransparency = 0.5
-        table.insert(highlightedPlayers, player)
-    end
-end
-
--- Function to Remove Highlight
-local function removeHighlight(player)
-    if player.Character and player.Character:FindFirstChild("Head") then
-        local highlight = player.Character.Head:FindFirstChild("Highlight")
-        if highlight then
-            highlight:Destroy()
         end
     end
 end
 
--- Update Highlight ESP
-game:GetService("Players").PlayerAdded:Connect(function(player)
-    if highlightEnabled then
-        addHighlight(player)
+-- ESP'yi güncelle
+function updateESP()
+    -- Tüm oyuncuları kontrol et ve ESP'yi çiz
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Character then
+            drawESP(player)
+        end
+    end
+end
+
+-- Oyuncu oyuna girdiğinde ESP'yi çiz
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        drawESP(player)
+    end)
+end)
+
+-- Oyuncu oyundan çıktığında ESP'yi sil
+game.Players.PlayerRemoving:Connect(function(player)
+    -- Player karakteri mevcutsa ve ESP aktifse, ESP'yi sil
+    local esp = game:GetService("CoreGui"):FindFirstChild(player.Name)
+    if esp then
+        esp:Destroy()
     end
 end)
 
-game:GetService("Players").PlayerRemoving:Connect(function(player)
-    removeHighlight(player)
+-- Başlangıçta mevcut oyuncuları ekle ve ESP'yi çiz
+for _, player in pairs(game.Players:GetPlayers()) do
+    if player.Character then
+        drawESP(player)
+    end
+end
+
+
+local highlightEnabled = false  -- Başlangıçta tracer kapalı
+
+-- GUI Elemanları (Roblox GUI)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")  -- GUI'yi oyuncunun ekranına ekleyelim
+
+-- Toggle ile tracer'ı açıp kapat
+local Toggle = Tab:CreateToggle({
+   Name = "Enable Tracers",
+   CurrentValue = false,
+   Flag = "Toggle1", -- Konfigürasyon dosyasındaki flag
+   Callback = function(Value)
+      -- Toggle durumu değiştiğinde yapılacaklar
+      highlightEnabled = Value
+      print("Tracer durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
+      updateTracers()  -- Tracer'ları güncelle
+   end,
+})
+
+-- Tracer Çizme Fonksiyonu
+function drawTracer(player)
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = character.HumanoidRootPart
+        local screenPosition, onScreen = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("CoreGui"):FindFirstChild("WorldCamera"):WorldToViewportPoint(rootPart.Position)
+        
+        if onScreen and highlightEnabled then
+            -- Tracer çizme
+            local tracer = Instance.new("Frame")
+            tracer.Size = UDim2.new(0, 2, 0, screenPosition.Y)
+            tracer.Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y)
+            tracer.BackgroundColor3 = Color3.fromRGB(0, 255, 0)  -- Tracer rengi
+            tracer.BorderSizePixel = 0
+            tracer.AnchorPoint = Vector2.new(0.5, 1)  -- Başlangıçta aşağıya doğru
+            tracer.Parent = screenGui
+            game:GetService("TweenService"):Create(tracer, TweenInfo.new(0.1), {Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y - 100)}):Play()  -- Yüksekliği 100 birim yukarı kaydır
+
+            -- Tracer zamanla kaybolur (örnek: 1 saniye sonra)
+            game:GetService("Debris"):AddItem(tracer, 1)  -- Tracer 1 saniye sonra silinir
+        end
+    end
+end
+
+-- Tracer'ları güncelle
+function updateTracers()
+    -- Mevcut oyuncuları kontrol et ve tracer'ları çiz
+    for _, player in pairs(game.Players:GetPlayers()) do
+        if player.Character then
+            drawTracer(player)
+        end
+    end
+end
+
+-- Oyuncu oyuna girdiğinde tracer'ı çiz
+game.Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        if highlightEnabled then
+            drawTracer(player)
+        end
+    end)
 end)
 
--- Initial Highlight for Players Already in the Game
-for , player in pairs(game:GetService("Players"):GetPlayers()) do
-    if highlightEnabled then
-        addHighlight(player)
+-- Oyuncu oyundan çıktığında tracer'ı sil
+game.Players.PlayerRemoving:Connect(function(player)
+    -- Player karakteri mevcutsa ve tracer aktifse, tracer'ı sil
+    -- Tracer'lar otomatik olarak 1 saniye sonra silinecek
+end)
+
+-- Başlangıçta mevcut oyuncuları ekle ve tracer'ı çiz
+for _, player in pairs(game.Players:GetPlayers()) do
+    if player.Character then
+        drawTracer(player)
     end
+end
+
+-- Her saniye oyuncuları kontrol et ve tracer'ları güncelle
+while true do
+    wait(1)  -- Her saniye
+    updateTracers()
 end
 
 
