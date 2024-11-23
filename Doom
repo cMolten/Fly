@@ -1,197 +1,83 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+
 local Window = Rayfield:CreateWindow({
-    Name = "Sir Doom",
-    Icon = 0,
+    Name = "Dooms",
+    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
     LoadingTitle = "Sdoom",
     LoadingSubtitle = "by Doom",
-    Theme = "Default",
+    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+ 
     DisableRayfieldPrompts = false,
-    DisableBuildWarnings = false,
+    DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+ 
     ConfigurationSaving = {
-        Enabled = true,
-        FolderName = nil,
-        FileName = "lua Hub"
+       Enabled = true,
+       FolderName = nil, -- Create a custom folder for your hub/game
+       FileName = "lua Hub"
     },
+ 
     Discord = {
-        Enabled = false,
-        Invite = "noinvitelink",
-        RememberJoins = true
+       Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
+       Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ABCD would be ABCD
+       RememberJoins = true -- Set this to false to make them join the discord every time they load it up
     },
-    KeySystem = false,
+ 
+    KeySystem = false, -- Set this to true to use our key system
     KeySettings = {
-        Title = "Untitled",
-        Subtitle = "Key System",
-        Note = "No method of obtaining the key is provided",
-        FileName = "Key",
-        SaveKey = true,
-        GrabKeyFromSite = false,
-        Key = {"Hello"}
+       Title = "Untitled",
+       Subtitle = "Key System",
+       Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
+       FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+       SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+       Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
     }
-})
+ })
 
-local Tab = Window:CreateTab("MainTab")
-local Section = Tab:CreateSection("Main")
 
--- Global player list
-local highlightEnabled = false  -- Başlangıçta highlight kapalı
+ local Tab = Window:CreateTab("Main")
+ local Section = Tab:CreateSection("MainStuff")
 
--- GUI Elemanları (Roblox GUI)
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")  -- GUI'yi oyuncunun ekranına ekleyelim
+ local Players = game:GetService("Players")
 
--- Toggle ile highlight'ı açıp kapat
 local Toggle = Tab:CreateToggle({
-   Name = "Enable ESP",
+   Name = "Highlight ESP",
    CurrentValue = false,
-   Flag = "Toggle1", -- Konfigürasyon dosyasındaki flag
+   Flag = "ToggleESP",
    Callback = function(Value)
-      -- Toggle durumu değiştiğinde yapılacaklar
-      highlightEnabled = Value
-      print("ESP durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
-      updateESP()  -- ESP'yi güncelle
+       if Value then
+           -- ESP açık olduğunda döngüyü başlat
+           spawn(function()
+               while Toggle.CurrentValue do
+                   -- Tüm oyuncuları döngüyle gez
+                   for _, player in ipairs(Players:GetPlayers()) do
+                       if player ~= Players.LocalPlayer and player.Character then
+                           -- Eğer oyuncunun Highlight'ı yoksa, ekle
+                           local highlight = player.Character:FindFirstChild("Highlight")
+                           if not highlight then
+                               highlight = Instance.new("Highlight")
+                               highlight.Parent = player.Character
+                               highlight.Adornee = player.Character
+                               highlight.FillColor = Color3.new(1, 0, 0) -- Kırmızı doldurma rengi
+                               highlight.OutlineColor = Color3.new(1, 1, 1) -- Beyaz kenarlık rengi
+                           end
+                       end
+                   end
+                   -- 1 saniye bekle
+                   wait(1)
+               end
+           end)
+       else
+           -- Toggle kapalı olduğunda tüm Highlightları kaldır
+           for _, player in ipairs(Players:GetPlayers()) do
+               if player.Character then
+                   local highlight = player.Character:FindFirstChild("Highlight")
+                   if highlight then
+                       highlight:Destroy()
+                   end
+               end
+           end
+       end
    end,
 })
-
--- ESP İşlevi: Oyuncuları highlight (ESP) ile göster
-function drawESP(player)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local rootPart = character.HumanoidRootPart
-        local screenPosition, onScreen = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("CoreGui"):FindFirstChild("WorldCamera"):WorldToViewportPoint(rootPart.Position)
-        
-        if onScreen then
-            local espText = Instance.new("TextLabel")
-            espText.Text = player.Name
-            espText.Size = UDim2.new(0, 100, 0, 30)
-            espText.Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y)
-            espText.TextColor3 = highlightEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)  -- Vurgulama (Red / Green)
-            espText.TextScaled = true
-            espText.BackgroundTransparency = 1
-            espText.Parent = game:GetService("CoreGui")
-            
-            -- Vurgulama etkinse, esp görünür, değilse gizlenir
-            if not highlightEnabled then
-                espText.Visible = false
-            end
-        end
-    end
-end
-
--- ESP'yi güncelle
-function updateESP()
-    -- Tüm oyuncuları kontrol et ve ESP'yi çiz
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if player.Character then
-            drawESP(player)
-        end
-    end
-end
-
--- Oyuncu oyuna girdiğinde ESP'yi çiz
-game.Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(character)
-        drawESP(player)
-    end)
-end)
-
--- Oyuncu oyundan çıktığında ESP'yi sil
-game.Players.PlayerRemoving:Connect(function(player)
-    -- Player karakteri mevcutsa ve ESP aktifse, ESP'yi sil
-    local esp = game:GetService("CoreGui"):FindFirstChild(player.Name)
-    if esp then
-        esp:Destroy()
-    end
-end)
-
--- Başlangıçta mevcut oyuncuları ekle ve ESP'yi çiz
-for _, player in pairs(game.Players:GetPlayers()) do
-    if player.Character then
-        drawESP(player)
-    end
-end
-
-
-local highlightEnabled = false  -- Başlangıçta tracer kapalı
-
--- GUI Elemanları (Roblox GUI)
-local screenGui = Instance.new("ScreenGui")
-screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")  -- GUI'yi oyuncunun ekranına ekleyelim
-
--- Toggle ile tracer'ı açıp kapat
-local Toggle = Tab:CreateToggle({
-   Name = "Enable Tracers",
-   CurrentValue = false,
-   Flag = "Toggle1", -- Konfigürasyon dosyasındaki flag
-   Callback = function(Value)
-      -- Toggle durumu değiştiğinde yapılacaklar
-      highlightEnabled = Value
-      print("Tracer durumu: " .. (highlightEnabled and "Açık" or "Kapalı"))
-      updateTracers()  -- Tracer'ları güncelle
-   end,
-})
-
--- Tracer Çizme Fonksiyonu
-function drawTracer(player)
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local rootPart = character.HumanoidRootPart
-        local screenPosition, onScreen = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("CoreGui"):FindFirstChild("WorldCamera"):WorldToViewportPoint(rootPart.Position)
-        
-        if onScreen and highlightEnabled then
-            -- Tracer çizme
-            local tracer = Instance.new("Frame")
-            tracer.Size = UDim2.new(0, 2, 0, screenPosition.Y)
-            tracer.Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y)
-            tracer.BackgroundColor3 = Color3.fromRGB(0, 255, 0)  -- Tracer rengi
-            tracer.BorderSizePixel = 0
-            tracer.AnchorPoint = Vector2.new(0.5, 1)  -- Başlangıçta aşağıya doğru
-            tracer.Parent = screenGui
-            game:GetService("TweenService"):Create(tracer, TweenInfo.new(0.1), {Position = UDim2.new(0, screenPosition.X, 0, screenPosition.Y - 100)}):Play()  -- Yüksekliği 100 birim yukarı kaydır
-
-            -- Tracer zamanla kaybolur (örnek: 1 saniye sonra)
-            game:GetService("Debris"):AddItem(tracer, 1)  -- Tracer 1 saniye sonra silinir
-        end
-    end
-end
-
--- Tracer'ları güncelle
-function updateTracers()
-    -- Mevcut oyuncuları kontrol et ve tracer'ları çiz
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if player.Character then
-            drawTracer(player)
-        end
-    end
-end
-
--- Oyuncu oyuna girdiğinde tracer'ı çiz
-game.Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(character)
-        if highlightEnabled then
-            drawTracer(player)
-        end
-    end)
-end)
-
--- Oyuncu oyundan çıktığında tracer'ı sil
-game.Players.PlayerRemoving:Connect(function(player)
-    -- Player karakteri mevcutsa ve tracer aktifse, tracer'ı sil
-    -- Tracer'lar otomatik olarak 1 saniye sonra silinecek
-end)
-
--- Başlangıçta mevcut oyuncuları ekle ve tracer'ı çiz
-for _, player in pairs(game.Players:GetPlayers()) do
-    if player.Character then
-        drawTracer(player)
-    end
-end
-
--- Her saniye oyuncuları kontrol et ve tracer'ları güncelle
-while true do
-    wait(1)  -- Her saniye
-    updateTracers()
-end
-
-
-Rayfield:LoadConfiguration()
